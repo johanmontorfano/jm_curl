@@ -26,3 +26,23 @@ pub fn output_to_dest(dest: OutputDest, content: String, file_name: Option<Strin
         print!("{}", content);
     }
 }
+
+pub fn output_bytes_to_dest(dest: OutputDest, content: &[u8], file_name: Option<String>) {
+    if dest == OutputDest::File && file_name.is_some() {
+        let mut file = OpenOptions::new()
+            .append(true)
+            .open(file_name.clone().unwrap());
+        if file.is_err() {
+            file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open(file_name.unwrap());
+        }
+        file.expect("Failed to use the specified file.")
+            .write(content.clone())
+            .expect("Failed to write content to file.");
+    }
+    if dest == OutputDest::Stdout {
+        print!("{:?}", content);
+    }
+}

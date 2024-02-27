@@ -1,8 +1,9 @@
 mod output;
 
 use std::env;
+use std::io::Read;
 use reqwest::blocking;
-use crate::output::{output_to_dest, OutputDest};
+use crate::output::{output_bytes_to_dest, output_to_dest, OutputDest};
 
 enum RequestMethods {
     Get,
@@ -24,6 +25,7 @@ fn main() {
     let args = env::args().collect::<Vec<String>>();
     let mut output_dest = OutputDest::Stdout;
     let mut output_file: Option<String> = None;
+    let mut output_headers = true;
     let mut method = RequestMethods::Get;
 
     if args.contains(&"-P".to_string()) {
@@ -34,6 +36,9 @@ fn main() {
     }
     else if args.contains(&"-D".to_string()) {
         method = RequestMethods::Delete;
+    }
+    if args.contains(&"--no-headers".to_string()) {
+        output_headers = false;
     }
 
     println!("[{}] {}", get_request_method_name(&method), args[1].to_string());
@@ -53,15 +58,18 @@ fn main() {
     }.send().expect("Failed to retrieve data from the provided URL.");
     if res.status().is_success() {
         println!("Reading data received from the source.");
-        for (header_name, header_value) in res.headers() {
-            output_to_dest(
-                output_dest,
-                format!("{}: {:?}\n", header_name.to_string(), header_value),
-                output_file.clone()
-            );
+        if output_headers {
+            for (header_name, header_value) in res.headers() {
+                output_to_dest(
+                    output_dest,
+                    format!("{}: {:?}\n", header_name.to_string(), header_value),
+                    output_file.clone()
+                );
+            }
+            output_to_dest(output_dest, "\n".into(), output_file.clone());
         }
-        if let Ok(content) = res.text() {
-            output_to_dest(output_dest, format!("\n{}", content), output_file.clone());
+        if let Ok(content) = res.bytes() {
+            output_bytes_to_dest(output_dest, content.iter().as_slice(), output_file.clone());
         }
     } else {
         println!("Failed to retrieve data from the provided URL: {}.", res.status());
